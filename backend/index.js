@@ -1,19 +1,28 @@
-require('dotenv').config();
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
+import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+import cors from 'cors';
+import mongoose from 'mongoose';
 
+// Load env
+dotenv.config();
+
+// Express setup
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 // MongoDB connection
-mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/edtech-feedback', {
+mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
-});
+  dbName: 'Feedback',
+})
+  .then(() => console.log('📦 Connected to MongoDB'))
+  .catch((err) => console.error('❌ MongoDB Error:', err));
 
-// Models
+// Define Feedback schema
 const Feedback = mongoose.model('Feedback', new mongoose.Schema({
   sessionId: String,
   clarity: Number,
@@ -23,40 +32,29 @@ const Feedback = mongoose.model('Feedback', new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 }));
 
-const Session = mongoose.model('Session', new mongoose.Schema({
-  sessionId: String,
-  trainerEmail: String,
-  title: String,
-}));
-
-// Routes
+// Handle feedback submission
 app.post('/feedback', async (req, res) => {
   try {
-    const feedback = new Feedback(req.body);
+    const { sessionId, clarity, content, interaction, comments } = req.body;
+    const feedback = new Feedback({ sessionId, clarity, content, interaction, comments });
     await feedback.save();
-    res.status(201).json({ message: 'Feedback saved' });
+    res.status(201).json({ message: 'Feedback submitted successfully' });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    console.error('❌ Feedback error:', err);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
-app.get('/session/:id', async (req, res) => {
-  const session = await Session.findOne({ sessionId: req.params.id });
-  if (!session) return res.status(404).json({ error: 'Session not found' });
-  res.json(session);
+// Serve React frontend from /public
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+app.use(express.static(path.join(__dirname, 'public')));
+
+// React Router fallback
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.get('/feedback/summary/:sessionId', async (req, res) => {
-  const feedbacks = await Feedback.find({ sessionId: req.params.sessionId });
-  if (feedbacks.length === 0) return res.json({ avgClarity: 0, avgContent: 0, avgInteraction: 0 });
-  const avg = (arr, key) => arr.reduce((a, b) => a + b[key], 0) / arr.length;
-  res.json({
-    avgClarity: avg(feedbacks, 'clarity'),
-    avgContent: avg(feedbacks, 'content'),
-    avgInteraction: avg(feedbacks, 'interaction'),
-    count: feedbacks.length,
-  });
-});
-
+// Start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`)); 
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
