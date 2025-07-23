@@ -36,7 +36,7 @@ function App() {
           <div>
             <h2 className="text-xl font-semibold mb-2">Feedback Form</h2>
             <p className="mb-4">Session ID: <span className="font-mono">{sessionId || 'REACT2025'}</span></p>
-            <FeedbackForm sessionId={sessionId || 'REACT2025'} />
+            <FeedbackForm sessionId={sessionId || 'Faculty 1'} />
           </div>
         )}
       </div>
